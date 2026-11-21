@@ -1,0 +1,299 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\X}{X}
+\newcommand{\Y}{Y}
+\newcommand{\ps}[2]{\left\langle #1,\, #2 \right\rangle}
+\newcommand{\nr}[1]{\left\| #1 \right\|}
+\newcommand{\dive}{\operatorname{div}}
+\newcommand{\F}{\mathcal{F}}
+
+\newtheorem*{remarque}{Remarque}
+
+\title{TP2 -- Traitement d'images par approches variationnelles\\[2pt]
+\large Réponses aux questions théoriques}
+\author{Younes Bouhoreira}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Notations}
+
+On travaille dans $\X = \R^{m\times n}$ muni du produit scalaire $\ps{u}{v}_\X = \sum_{x\in\Omega} u(x)v(x)$,
+et dans $\Y = \X \times \X$ (champs de vecteurs) muni de $\ps{p}{q}_\Y = \sum_{x\in\Omega} p(x)\cdot q(x)$.
+Le gradient discret $\nabla : \X \to \Y$ est linéaire, et la divergence discrète est définie par dualité :
+\[
+  \dive = -\nabla^{*}, \qquad \text{c'est-à-dire} \qquad
+  \ps{\nabla u}{p}_\Y = -\ps{u}{\dive p}_\X \quad \forall u\in\X,\ \forall p \in \Y .
+\]
+C'est exactement la construction des fonctions \texttt{gradient} et \texttt{div} du notebook
+(différences avant, conditions de Neumann). On note $\Delta = \dive \nabla$.
+
+Pour montrer qu'une fonction $J$ est différentiable de gradient $\nabla J(u)$, on développe
+$J(u+h) = J(u) + \ps{\nabla J(u)}{h}_\X + o(\nr{h})$.
+
+\section*{Question 1 -- Convexité et gradients de $J_H$ et $J_{PM}$}
+
+\subsection*{Fonction $J_H(u) = \frac12 \sum_{x} \nr{\nabla u(x)}^2 = \frac12 \nr{\nabla u}_\Y^2$}
+
+\paragraph{Convexité.}
+L'application $p \mapsto \frac12\nr{p}_\Y^2$ est convexe et $\nabla$ est linéaire.
+Pour $u,v\in\X$ et $t\in[0,1]$, on a l'identité
+\[
+  \tfrac12\nr{t\,a + (1-t)\,b}^2 = t\,\tfrac12\nr{a}^2 + (1-t)\,\tfrac12\nr{b}^2 - \tfrac12\,t(1-t)\nr{a-b}^2 ,
+\]
+appliquée avec $a = \nabla u$, $b=\nabla v$ :
+\[
+  J_H(tu+(1-t)v) = t J_H(u) + (1-t) J_H(v) - \tfrac12\,t(1-t)\nr{\nabla(u-v)}_\Y^2 \le t J_H(u) + (1-t) J_H(v).
+\]
+Donc $J_H$ est \textbf{convexe}. Elle n'est \textbf{pas strictement convexe} : si $u - v = c$ est une
+image constante, $\nabla(u-v)=0$ et on a égalité. Le noyau de $\nabla$ est l'ensemble $C$ des images constantes.
+
+\paragraph{Gradient.}
+\begin{align*}
+  J_H(u+h) &= \tfrac12\nr{\nabla u + \nabla h}_\Y^2
+  = J_H(u) + \ps{\nabla u}{\nabla h}_\Y + \tfrac12\nr{\nabla h}_\Y^2 \\
+  &= J_H(u) + \ps{-\dive \nabla u}{h}_\X + O(\nr{h}^2).
+\end{align*}
+D'où
+\[
+  \boxed{\nabla J_H(u) = -\dive(\nabla u) = -\Delta u.}
+\]
+
+\subsection*{Fonction $J_{PM}(u) = \sum_{x} \sqrt{\nr{\nabla u(x)}^2 + 1}$}
+
+\paragraph{Convexité.}
+Posons $\psi(p) = \sqrt{|p|^2 + 1}$ pour $p\in\R^2$. On a $\psi(p) = \nr{(p,1)}_{\R^3}$ : c'est la norme
+euclidienne composée avec l'application affine $p\mapsto(p,1)$, donc $\psi$ est convexe.
+Pour $t\in[0,1]$ :
+\[
+  \psi(tp+(1-t)q) = \nr{t(p,1) + (1-t)(q,1)} \le t\,\psi(p) + (1-t)\,\psi(q).
+\]
+Ainsi $J_{PM} = \sum_x \psi\circ(\nabla u)(x)$ est une somme de fonctions convexes composées avec une application
+linéaire : $J_{PM}$ est \textbf{convexe}. Comme pour $J_H$, $J_{PM}(u+c) = J_{PM}(u)$ pour toute constante $c$,
+donc $J_{PM}$ \textbf{n'est pas strictement convexe}.
+
+\paragraph{Gradient.}
+$\psi$ est différentiable sur $\R^2$, de gradient $\nabla\psi(p) = \dfrac{p}{\sqrt{|p|^2+1}}$. Donc
+\begin{align*}
+  J_{PM}(u+h) &= J_{PM}(u) + \sum_x \frac{\nabla u(x)}{\sqrt{\nr{\nabla u(x)}^2+1}}\cdot \nabla h(x) + o(\nr{h}) \\
+  &= J_{PM}(u) + \ps{-\dive\!\left(\frac{\nabla u}{\sqrt{\nr{\nabla u}^2+1}}\right)}{h}_\X + o(\nr{h}),
+\end{align*}
+\[
+  \boxed{\nabla J_{PM}(u) = -\dive\!\left(\frac{\nabla u}{\sqrt{\nr{\nabla u}^2+1}}\right).}
+\]
+On retrouve l'EDP de Perona--Malik (1.3) avec $g(\xi) = 1/\sqrt{\xi^2+1}$.
+
+\begin{remarque}
+Pour la TV lissée $J^{\epsilon}_{TV}(u) = \sum_x \sqrt{\nr{\nabla u(x)}^2+\epsilon}$, la hessienne de
+$\psi_\epsilon(p)=\sqrt{|p|^2+\epsilon}$ vaut
+$\dfrac{(|p|^2+\epsilon)\,I - p\,p^{T}}{(|p|^2+\epsilon)^{3/2}}$, de plus grande valeur propre
+$1/\sqrt{|p|^2+\epsilon} \le 1/\sqrt{\epsilon}$. Comme $\nr{\nabla}^2 \le 8$, on obtient
+$\nabla J^{\epsilon}_{TV}$ lipschitzien de constante $L \le 8/\sqrt{\epsilon}$, qui explose quand $\epsilon\to 0$ :
+c'est pourquoi le pas $\tau$ doit être pris petit (de l'ordre de $\sqrt{\epsilon}/8$) pour la TV.
+\end{remarque}
+
+\section*{Question 2 -- Stricte convexité et gradient de $J_D$}
+
+On considère $J_D(u) = \frac12\sum_x |u(x)-f(x)|^2 = \frac12\nr{u-f}_\X^2$.
+
+\paragraph{Stricte convexité.}
+Avec la même identité que pour $J_H$ (appliquée à $a = u-f$, $b = v-f$) :
+\[
+  J_D(tu+(1-t)v) = t J_D(u) + (1-t) J_D(v) - \tfrac12\,t(1-t)\nr{u-v}_\X^2 .
+\]
+Pour $u\neq v$ et $t\in\,]0,1[$, le dernier terme est strictement positif, donc l'inégalité est stricte :
+$J_D$ est \textbf{strictement convexe}. Son unique minimiseur est $u=f$.
+
+\paragraph{Gradient.}
+\[
+  J_D(u+h) = \tfrac12\nr{u-f+h}_\X^2 = J_D(u) + \ps{u-f}{h}_\X + \tfrac12\nr{h}_\X^2,
+  \qquad\text{donc}\qquad
+  \boxed{\nabla J_D(u) = u - f.}
+\]
+
+\paragraph{Conséquence.}
+$J_\lambda = \lambda J_D + J_R$ est strictement convexe dès que $\lambda>0$ (somme d'une fonction strictement
+convexe et d'une fonction convexe) : le minimiseur $u_\lambda$ est unique.
+
+\section*{Question 7 (bonus) -- Relations (1.13) et (1.14)}
+
+On utilise le laplacien centré avec conditions périodiques :
+\[
+  (\Delta f)(k,l) = f(k+1,l) + f(k-1,l) + f(k,l+1) + f(k,l-1) - 4 f(k,l),
+\]
+les indices étant pris modulo $m$ et $n$.
+
+\paragraph{Propriété de translation.}
+Si $g(k,l) = f(k+a,l+b)$ (indices modulo $m,n$), le changement d'indice $k' = k+a$, $l'=l+b$ dans (1.11) donne
+\[
+  \F(g)(p,q) = e^{\,j\frac{2\pi}{m}pa}\, e^{\,j\frac{2\pi}{n}qb}\, \F(f)(p,q).
+\]
+
+\paragraph{Relation (1.13).}
+Par linéarité de la TFD :
+\begin{align*}
+  \F(\Delta f)(p,q) &= \F(f)(p,q)\left( e^{j\frac{2\pi p}{m}} + e^{-j\frac{2\pi p}{m}} + e^{j\frac{2\pi q}{n}} + e^{-j\frac{2\pi q}{n}} - 4 \right) \\
+  &= \F(f)(p,q)\left( 2\cos\tfrac{2\pi p}{m} + 2\cos\tfrac{2\pi q}{n} - 4 \right).
+\end{align*}
+Avec $1-\cos(2a) = 2\sin^2(a)$ :
+\[
+  2\cos\tfrac{2\pi p}{m} - 2 = -4\sin^2\tfrac{\pi p}{m}, \qquad 2\cos\tfrac{2\pi q}{n} - 2 = -4\sin^2\tfrac{\pi q}{n},
+\]
+d'où
+\[
+  \boxed{\F(\Delta f)(p,q) = -4\,\F(f)(p,q)\left(\sin^2\tfrac{\pi p}{m} + \sin^2\tfrac{\pi q}{n}\right).} \tag{1.13}
+\]
+
+\paragraph{Relation (1.14).}
+On applique la TFD à la condition d'optimalité (1.10) $\lambda(u-f) - \Delta u = 0$ :
+\[
+  \lambda\,\F(u) + 4\left(\sin^2\tfrac{\pi p}{m} + \sin^2\tfrac{\pi q}{n}\right)\F(u) = \lambda\,\F(f),
+\]
+\[
+  \boxed{\F(u)(p,q) = \frac{\lambda\,\F(f)(p,q)}{\lambda + 4\left(\sin^2\frac{\pi p}{m} + \sin^2\frac{\pi q}{n}\right)}.} \tag{1.14}
+\]
+Pour $\lambda>0$ le dénominateur est strictement positif, donc la solution est bien définie et unique.
+Interprétation : c'est un \textbf{filtre passe-bas}. En $(p,q)=(0,0)$ le gain vaut $1$ (la moyenne de $f$ est
+conservée) ; les hautes fréquences sont atténuées d'autant plus que $\lambda$ est petit.
+
+\section*{Question 8 -- Gradient de $J_A$, calcul de $G^T$ et $M^T$}
+
+\paragraph{Gradient de $J_A(u) = \frac12\nr{Au-f}_\X^2$.}
+\begin{align*}
+  J_A(u+h) &= \tfrac12\nr{Au - f + Ah}^2 = J_A(u) + \ps{Au-f}{Ah}_\X + \tfrac12\nr{Ah}^2 \\
+  &= J_A(u) + \ps{A^{T}(Au-f)}{h}_\X + O(\nr{h}^2),
+\end{align*}
+\[
+  \boxed{\nabla J_A(u) = A^{T}(Au - f).}
+\]
+(L'énoncé écrit $A^T(A(u-f))$ ; la bonne expression est $A^T(Au-f)$. Les deux coïncident pour le masque, voir plus bas.)
+
+\paragraph{Convolution : calcul de $G^T$.}
+La convolution s'écrit $(G*u)(x_k) = \sum_l G(x_k - x_l)\,u(x_l)$, donc la matrice associée a pour coefficients
+$G_{kl} = G(x_k - x_l)$. Sa transposée vérifie
+\[
+  (G^{T})_{kl} = G_{lk} = G(x_l - x_k) = \tilde G(x_k - x_l), \qquad \tilde G(x) := G(-x).
+\]
+$G^T$ est donc la convolution avec le noyau retourné $\tilde G$. Si $G$ est symétrique ($G(-x)=G(x)$, ce qui est le cas
+d'un noyau isotrope comme le noyau gaussien), alors $\boxed{G^T = G}$ et
+\[
+  \nabla J_G(u) = G*(G*u - f). \tag{2.16}
+\]
+(Aux bords, cette égalité n'est exacte que pour des conditions périodiques ; avec un prolongement symétrique,
+elle est approchée.)
+
+\paragraph{Inpainting : calcul de $M^T$.}
+$M$ est la matrice diagonale avec $M_{kk} = 1$ si $x_k\in\mathcal M$ et $0$ sinon. Elle est diagonale donc
+$\boxed{M^T = M}$, et c'est un projecteur : $M^2 = M$. Comme $f$ n'est observée que sur $\mathcal M$, on a :
+\[
+  \nabla J_M(u) = M^T(Mu - f) = M^2 u - Mf = M(u - f) = (u-f)\,M,
+\]
+c'est-à-dire $\nabla J_M(u)(x) = u(x)-f(x)$ si $x\in\mathcal M$ et $0$ sinon, ce qui est la relation (2.17).
+
+\section*{Question 13 -- Propriétés des modèles et des paramètres}
+
+\subsection*{Les modèles}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Déconvolution + TV lissée} (2.18).
+    Le noyau gaussien est un passe-bas : $G$ a des valeurs propres très petites pour les hautes fréquences,
+    donc inverser seulement le terme d'attache ($\lambda\to\infty$) amplifie le bruit.
+    La TV impose une image constante par morceaux : elle redonne des contours nets, mais
+    efface les textures fines (effet \og cartoon \fg{} / marches d'escalier).
+    La fonctionnelle est strictement convexe : $\psi_\epsilon$ est strictement convexe, et sur les constantes
+    $G * c = c \neq 0$ (noyau normalisé), donc le minimiseur est unique.
+    La régularisation de Tikhonov serait peu adaptée ici, car elle lisserait encore l'image déjà floue.
+
+  \item \textbf{Inpainting + TV lissée} (2.19).
+    Hors du masque, seul le terme de régularisation agit : on prolonge l'information connue vers les trous.
+    La TV favorise des lignes de niveau courtes : elle prolonge les contours et conserve des transitions nettes,
+    mais peut créer des contours droits artificiels dans les grandes zones manquantes.
+
+  \item \textbf{Inpainting + Tikhonov} (2.20).
+    Dans les trous, la condition d'optimalité devient $\Delta u = 0$ : on fait une interpolation
+    \textbf{harmonique}, c'est-à-dire une diffusion isotrope. Elle donne de bons résultats pour les zones presque
+    uniformes (ciel, eau, sable) et les trous fins (grille du perroquet), mais elle floute les contours qui
+    traversent un grand trou.
+\end{itemize}
+
+Pour les deux inpaintings, la fonctionnelle est strictement convexe dès que le masque est non vide
+($M\mathbf 1 \neq 0$) : la solution est unique.
+
+\subsection*{Les paramètres}
+
+\begin{itemize}[leftmargin=*]
+  \item $\boldsymbol{\lambda}$ : compromis attache aux données / régularité.
+    En déconvolution, $\lambda$ grand donne une image plus nette mais bruitée ; $\lambda$ petit donne une image
+    lisse et \og cartoon \fg{}.
+    En inpainting, les pixels connus ne sont pas bruités, donc on peut prendre $\lambda$ grand ; $\lambda$ n'agit
+    que sur $\mathcal M$ et a peu d'influence sur le remplissage des trous.
+  \item $\boldsymbol{\epsilon}$ : plus il est petit, plus $J^\epsilon_{TV}$ est proche de la vraie TV (contours plus
+    nets), mais plus la constante de Lipschitz $8/\sqrt\epsilon$ est grande, ce qui force un pas $\tau$ plus petit
+    et ralentit la convergence.
+  \item $\boldsymbol{\tau}$ : la descente de gradient converge pour $\tau < 2/L$, avec
+    $L \le \lambda\nr{A}^2 + 8$ (Tikhonov) ou $L \le \lambda\nr{A}^2 + 8/\sqrt\epsilon$ (TV), et $\nr{G}\le 1$,
+    $\nr{M}=1$.
+  \item $\boldsymbol{K}$ : en inpainting, l'information se propage par diffusion, donc lentement : il faut un
+    grand nombre d'itérations pour remplir les grands trous (d'où $K$ de l'ordre de plusieurs milliers).
+\end{itemize}
+
+\section*{Question 14 -- Conditions d'optimalité pour $\phi_1$ et $\phi_2$}
+
+On minimise $J_\lambda(u) = \frac{\lambda}{2}\nr{u-f}_\X^2 + \sum_x \phi\big(\nr{\nabla u(x)}\big)$.
+Pour $\phi$ dérivable avec $\phi'(0)=0$, le même calcul qu'à la question 1 donne
+\[
+  \nabla J_\lambda(u) = \lambda(u-f) - \dive\!\left(\frac{\phi'(\nr{\nabla u})}{\nr{\nabla u}}\,\nabla u\right),
+\]
+d'où la condition d'optimalité (équation d'Euler--Lagrange) :
+\[
+  \boxed{\lambda(u-f) - \dive\!\left(\frac{\phi'(\nr{\nabla u})}{\nr{\nabla u}}\,\nabla u\right) = 0.}
+\]
+
+\begin{center}
+\renewcommand{\arraystretch}{1.8}
+\begin{tabular}{@{}llll@{}}
+\toprule
+ & $\phi(\xi)$ & $\phi'(\xi)$ & $\phi'(\xi)/\xi$ \\
+\midrule
+TV lissée & $\sqrt{\xi^2+1}$ & $\dfrac{\xi}{\sqrt{\xi^2+1}}$ & $\dfrac{1}{\sqrt{\xi^2+1}}$ \\
+$\phi_1$ & $\dfrac{\xi^2}{1+\xi^2}$ & $\dfrac{2\xi}{(1+\xi^2)^2}$ & $\dfrac{2}{(1+\xi^2)^2}$ \\
+$\phi_2$ & $\log(1+\xi^2)$ & $\dfrac{2\xi}{1+\xi^2}$ & $\dfrac{2}{1+\xi^2}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Les conditions d'optimalité sont donc :
+\begin{align*}
+  \phi_1 :\quad & \lambda(u-f) - \dive\!\left(\frac{2\,\nabla u}{\big(1+\nr{\nabla u}^2\big)^2}\right) = 0, \\
+  \phi_2 :\quad & \lambda(u-f) - \dive\!\left(\frac{2\,\nabla u}{1+\nr{\nabla u}^2}\right) = 0 .
+\end{align*}
+
+\paragraph{Détail des dérivées.}
+Pour $\phi_1(\xi) = \dfrac{\xi^2}{1+\xi^2} = 1 - \dfrac{1}{1+\xi^2}$, on a $\phi_1'(\xi) = \dfrac{2\xi}{(1+\xi^2)^2}$.
+Pour $\phi_2(\xi)=\log(1+\xi^2)$, on a $\phi_2'(\xi) = \dfrac{2\xi}{1+\xi^2}$.
+
+\paragraph{Non-convexité.}
+$\phi_1''(\xi) = \dfrac{2(1-3\xi^2)}{(1+\xi^2)^3}$ est négatif pour $\xi > 1/\sqrt3$, et
+$\phi_2''(\xi) = \dfrac{2(1-\xi^2)}{(1+\xi^2)^2}$ est négatif pour $\xi>1$ :
+$\phi_1$ et $\phi_2$ ne sont \textbf{pas convexes}. La condition d'optimalité est alors seulement nécessaire :
+la descente de gradient converge vers un point critique qui dépend de l'initialisation $u^0=f$.
+
+\paragraph{Mise à l'échelle.}
+Les niveaux de gris étant dans $[0,255]$, on utilise en pratique $\varepsilon^2\phi(\xi/\varepsilon)$, dont
+le coefficient de diffusion est $\phi'(s)/s$ avec $s = \nr{\nabla u}/\varepsilon$. Le paramètre $\varepsilon$
+joue le rôle d'un seuil de contraste : un gradient bien plus grand que $\varepsilon$ est considéré comme un contour
+et peu diffusé. Comme $\phi'(s)/s \le 2$, la descente de gradient est stable pour $\tau < 2/(\lambda+16)$.
+
+\end{document}

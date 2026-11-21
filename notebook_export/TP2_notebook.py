@@ -490,16 +490,130 @@ for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
 # --- cell 56 (markdown) ---
 # ## 14
 
-# --- cell 57 ---
-def Denoise_g1(f, K, lamb, eps, tau):
-    pass
+# --- cell 57 (markdown) ---
+# ### Conditions d'optimalité
+# 
+# On minimise $J_\lambda(u) = \frac{\lambda}{2}\|u - f\|^2 + \sum_{x} \phi(\|\nabla u(x)\|)$.
+# 
+# Pour un $\phi$ dérivable, le gradient du terme de régularisation est
+# $\nabla J_R(u) = -\operatorname{div}\left( \frac{\phi'(\|\nabla u\|)}{\|\nabla u\|} \nabla u \right)$,
+# donc la condition d'optimalité (Euler-Lagrange) s'écrit :
+# 
+# $$\lambda (u - f) - \operatorname{div}\left( \frac{\phi'(\|\nabla u\|)}{\|\nabla u\|} \nabla u \right) = 0$$
+# 
+# | | $\phi(\xi)$ | $\phi'(\xi)$ | $\phi'(\xi)/\xi$ | Condition d'optimalité |
+# |---|---|---|---|---|
+# | TV lissée | $\sqrt{\xi^2 + 1}$ | $\frac{\xi}{\sqrt{\xi^2+1}}$ | $\frac{1}{\sqrt{\xi^2+1}}$ | $\lambda(u-f) - \operatorname{div}\left(\frac{\nabla u}{\sqrt{\|\nabla u\|^2+1}}\right) = 0$ |
+# | $\phi_1$ | $\frac{\xi^2}{1+\xi^2}$ | $\frac{2\xi}{(1+\xi^2)^2}$ | $\frac{2}{(1+\xi^2)^2}$ | $\lambda(u-f) - \operatorname{div}\left(\frac{2\nabla u}{(1+\|\nabla u\|^2)^2}\right) = 0$ |
+# | $\phi_2$ | $\log(1+\xi^2)$ | $\frac{2\xi}{1+\xi^2}$ | $\frac{2}{1+\xi^2}$ | $\lambda(u-f) - \operatorname{div}\left(\frac{2\nabla u}{1+\|\nabla u\|^2}\right) = 0$ |
+# 
+# Remarque : $\phi_1$ et $\phi_2$ ne sont **pas convexes** (concaves pour $\xi$ grand), donc cette condition est seulement nécessaire : la descente de gradient converge vers un point critique qui dépend de l'initialisation $u^0 = f$.
+# 
+# En pratique, les pixels valent entre 0 et 255, donc on remplace $\xi$ par $\xi/\varepsilon$ (fonction $\varepsilon^2\phi(\xi/\varepsilon)$) : $\varepsilon$ fixe le seuil de contraste à partir duquel un gradient est considéré comme un contour.
 
 # --- cell 58 ---
-def Denoise_g2(f, K, lamb, eps, tau):
-    pass
+def Denoise_g1(f, K, lamb, eps, tau, conv_crit=1e-5):
+    """
+    Débruitage avec phi_1(xi) = xi^2 / (1 + xi^2)   (non convexe)
+    On utilise la version mise à l'échelle  eps^2 * phi_1(|grad u| / eps) :
+    eps joue le rôle de seuil de contraste (gradients >> eps = contours conservés).
 
-# --- cell 59 (markdown) ---
+    Descente de gradient :
+        u^{k+1} = u^k + tau * ( lamb * (f - u^k) + div( w1(|grad u^k|) * grad u^k ) )
+    avec  w1(t) = phi_1'(s) / s = 2 / (1 + s^2)^2,   s = t / eps.
+    Stable pour tau < 2 / (lamb + 16)  (w1 <= 2 et constante du laplacien = 8).
+    """
+    f = f.astype(np.float64)
+    u = f.copy()
+
+    for k in range(K):
+        u_prev = u.copy()
+
+        grad = gradient(u)                         # shape (2, m, n)
+        s2 = np.sum(grad**2, axis=0) / eps**2      # (|grad u| / eps)^2
+        w = 2.0 / (1.0 + s2)**2                    # phi_1'(s) / s
+
+        u = u + tau * (lamb * (f - u) + div(w * grad))
+
+        if convergence_criteria(u_prev, u, conv_crit):
+            break
+
+    return u
+
+# --- cell 59 ---
+def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
+    """
+    Débruitage avec phi_2(xi) = log(1 + xi^2)   (non convexe)
+    Version mise à l'échelle  eps^2 * phi_2(|grad u| / eps).
+
+    Descente de gradient :
+        u^{k+1} = u^k + tau * ( lamb * (f - u^k) + div( w2(|grad u^k|) * grad u^k ) )
+    avec  w2(t) = phi_2'(s) / s = 2 / (1 + s^2),   s = t / eps.
+    (c'est exactement le coefficient de diffusion de Perona-Malik)
+    Stable pour tau < 2 / (lamb + 16).
+    """
+    f = f.astype(np.float64)
+    u = f.copy()
+
+    for k in range(K):
+        u_prev = u.copy()
+
+        grad = gradient(u)
+        s2 = np.sum(grad**2, axis=0) / eps**2
+        w = 2.0 / (1.0 + s2)                       # phi_2'(s) / s
+
+        u = u + tau * (lamb * (f - u) + div(w * grad))
+
+        if convergence_criteria(u_prev, u, conv_crit):
+            break
+
+    return u
+
+# --- cell 60 (markdown) ---
 # #### Comparison `Denoise_TV`, `Denoise_g1`, `Denoise_g2`
 
-# --- cell 60 ---
-pass
+# --- cell 61 ---
+lamb_cmp = 0.01
+K_cmp = 300
+tau_cmp = 0.1          # < 2 / (lamb + 16) : stable pour les trois méthodes
+eps_g1 = 20.0          # seuil de contraste pour phi_1
+eps_g2 = 5.0           # seuil de contraste pour phi_2
+
+u_tv = Denoise_TV(Im_noised, K=1000, lamb=lamb_cmp, eps=1.0, tau=tau_cmp)
+u_g1 = Denoise_g1(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=eps_g1, tau=tau_cmp)
+u_g2 = Denoise_g2(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=eps_g2, tau=tau_cmp)
+
+def rmse(u, ref):
+    return np.sqrt(np.mean((u - ref) ** 2))
+
+images = [Im_noised, u_tv, u_g1, u_g2]
+titles = ["$f$ bruitée", "TV", f"$\\phi_1$ ($\\varepsilon$={eps_g1})", f"$\\phi_2$ ($\\varepsilon$={eps_g2})"]
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+for ax, im, t in zip(axes, images, titles):
+    ax.imshow(im, cmap='gray', **bounds)
+    ax.set_title(f"{t}\nRMSE = {rmse(im, Im_data):.1f}")
+    ax.axis('off')
+plt.tight_layout()
+plt.show()
+
+# Influence de eps (seuil de contraste)
+eps_list = [5.0, 10.0, 20.0, 40.0]
+fig, axes = plt.subplots(2, len(eps_list), figsize=(20, 9))
+for j, e in enumerate(eps_list):
+    for i, (name, fn) in enumerate([("$\\phi_1$", Denoise_g1), ("$\\phi_2$", Denoise_g2)]):
+        u = fn(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=e, tau=tau_cmp)
+        axes[i, j].imshow(u, cmap='gray', **bounds)
+        axes[i, j].set_title(f"{name}, $\\varepsilon$={e}, RMSE = {rmse(u, Im_data):.1f}")
+        axes[i, j].axis('off')
+plt.tight_layout()
+plt.show()
+
+# --- cell 62 (markdown) ---
+# ### Commentaires
+# 
+# - **Qualité** (bruit $\sigma=30$, RMSE de $f$ ≈ 29.9, $\lambda=0.01$) : $\phi_2$ avec $\varepsilon=5$ donne la meilleure erreur (RMSE ≈ 12.3) ; $\phi_1$ avec $\varepsilon=20$ (≈ 14.5) est au niveau de la TV lissée (≈ 14.2). Mais avec un mauvais $\varepsilon$, $\phi_1$ et $\phi_2$ peuvent être bien pires que la TV (voir la deuxième figure).
+# - **Préservation des contours** : le poids $\phi'(\xi)/\xi$ décroît en $1/\xi$ pour TV, en $1/\xi^2$ pour $\phi_2$ et en $1/\xi^4$ pour $\phi_1$. Plus il décroît vite, moins on diffuse à travers les forts gradients : les contours restent nets, les zones plates sont lissées.
+# - **Rôle de $\varepsilon$** : c'est un seuil de contraste. Trop petit, le bruit est vu comme des contours et n'est pas retiré ; trop grand, les vrais contours sont lissés. Le bon $\varepsilon$ n'est pas le même pour $\phi_1$ et $\phi_2$, et il dépend du niveau de bruit.
+# - **Non-convexité** : contrairement à Tikhonov et à la TV, $J_\lambda$ n'est plus convexe. Il n'y a pas d'unicité du minimiseur, le résultat dépend de l'initialisation ($u^0 = f$) et du nombre d'itérations. $\phi_1$ est bornée (elle « sature » à 1) : elle pénalise à peu près pareil tous les grands sauts, ce qui favorise des images constantes par morceaux.
+# - **Rôle de $\lambda$** : comme avant, il équilibre attache aux données et régularisation ; ici $\lambda$ influe moins que $\varepsilon$ sur le résultat.
