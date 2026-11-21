@@ -83,7 +83,8 @@ def add_gaussian_noise(I, s):
 Im_data = load_img('cameraman.png', dirname='images/')
 
 # --- cell 14 ---
-# Noise image
+# Noise image (graine fixée pour des résultats reproductibles)
+np.random.seed(0)
 Im_noised = add_gaussian_noise(Im_data, s=30)
 
 bounds = {'vmin': 0, 'vmax': 255}
@@ -142,7 +143,7 @@ axes[0].axis('off')
 for i, lamb in enumerate(lambdas_tik):
     u_tik = Denoise_Tikhonov(Im_noised, K=K_max, lamb=lamb)
     axes[i+1].imshow(u_tik, cmap='gray', **bounds)
-    axes[i+1].set_title(f"Tikhonov ($\lambda = {lamb}$)")
+    axes[i+1].set_title(f"Tikhonov ($\\lambda = {lamb}$)")
     axes[i+1].axis('off')
 
 plt.tight_layout()
@@ -198,7 +199,7 @@ axes[0].axis('off')
 for i, lamb in enumerate(lambdas_tv):
     u_tv = Denoise_TV(Im_noised, K=K_max, lamb=lamb, eps=eps, tau=tau_tv)
     axes[i+1].imshow(u_tv, cmap='gray', **bounds)
-    axes[i+1].set_title(f"TV ($\lambda = {lamb}$)")
+    axes[i+1].set_title(f"TV ($\\lambda = {lamb}$)")
     axes[i+1].axis('off')
 
 plt.tight_layout()
@@ -249,11 +250,11 @@ axes[0].set_title('Bruitée $f$')
 axes[0].axis('off')
 
 axes[1].imshow(u_tik_grad, cmap='gray', **bounds)
-axes[1].set_title(f'Tikhonov Gradient ($\lambda = {lamb}$)')
+axes[1].set_title(f'Tikhonov Gradient ($\\lambda = {lamb}$)')
 axes[1].axis('off')
 
 axes[2].imshow(u_tik_dft, cmap='gray', **bounds)
-axes[2].set_title(f'Tikhonov DFT ($\lambda = {lamb}$)')
+axes[2].set_title(f'Tikhonov DFT ($\\lambda = {lamb}$)')
 axes[2].axis('off')
 
 plt.tight_layout()
@@ -382,7 +383,9 @@ plt.show()
 
 # --- cell 47 ---
 def Inpainting_TV(f, M, tau, eps, K, lamb):
-    u = f.astype(np.float64).copy()
+    f = f.astype(np.float64)
+    M = (M > 0).astype(np.float64)   # normalise le masque en {0, 1} (accepte 0/255)
+    u = f.copy()
     
     for k in range(K):
         # Terme d'attache aux données : M * (f - u)
@@ -411,15 +414,13 @@ eps = 1.0
 for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
                        ("Beach", Im_beach, Mask_beach),
                        ("Mystery", Im_mystery, Mask_mystery)]:
-    M = (Mask > 0).astype(np.float64)   # masque 0/255 -> 0/1
-
     fig, axes = plt.subplots(1, len(lambdas_inp_tv) + 1, figsize=(16, 4))
     axes[0].imshow(Im, cmap='gray', **bounds)
     axes[0].set_title(f"{name} : $f$")
     axes[0].axis('off')
 
     for i, lamb in enumerate(lambdas_inp_tv):
-        u_inp = Inpainting_TV(Im, M, tau=1.0 / (lamb + 8.0 / eps), eps=eps, K=K_inp_tv, lamb=lamb)
+        u_inp = Inpainting_TV(Im, Mask, tau=1.0 / (lamb + 8.0 / eps), eps=eps, K=K_inp_tv, lamb=lamb)
         axes[i+1].imshow(u_inp, cmap='gray', **bounds)
         axes[i+1].set_title(f"TV ($\\lambda = {lamb}$)")
         axes[i+1].axis('off')
