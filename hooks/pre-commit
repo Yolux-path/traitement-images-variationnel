@@ -1,0 +1,28 @@
+#!/bin/sh
+# Regenerate notebook_export/TP2_notebook.py from the notebook so the code
+# can be read and diffed as plain Python. Runs only when the notebook is staged.
+NB="TP2_jupyter_empty.ipynb"
+OUT="notebook_export/TP2_notebook.py"
+cd "$(git rev-parse --show-toplevel)" || exit 0
+git diff --cached --name-only | grep -qx "$NB" || exit 0
+
+PY=python3
+"$PY" - "$NB" "$OUT" <<'EOF' || { echo "pre-commit: notebook export failed (commit continues)"; exit 0; }
+import json, sys, ast
+from pathlib import Path
+nb_path, out_path = sys.argv[1], Path(sys.argv[2])
+nb = json.loads(Path(nb_path).read_text(encoding="utf-8"))
+parts = [f"# Auto-generated from {nb_path} by hooks/pre-commit - do not edit by hand."]
+for i, c in enumerate(nb["cells"]):
+    src = "".join(c["source"])
+    if c["cell_type"] == "code":
+        lines = [l for l in src.splitlines() if not l.lstrip().startswith(("%", "!"))]
+        parts.append(f"# --- cell {i} ---\n" + "\n".join(lines))
+    else:
+        parts.append(f"# --- cell {i} (markdown) ---\n" + "\n".join("# " + l for l in src.splitlines()))
+text = "\n\n".join(parts) + "\n"
+ast.parse(text)
+out_path.parent.mkdir(parents=True, exist_ok=True)
+out_path.write_text(text, encoding="utf-8")
+EOF
+git add "$OUT"

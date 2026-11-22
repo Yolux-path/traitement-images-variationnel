@@ -1,4 +1,4 @@
-# Auto-generated from TP2_jupyter_empty.ipynb by .git/hooks/pre-commit - do not edit by hand.
+# Auto-generated from TP2_jupyter_empty.ipynb by hooks/pre-commit - do not edit by hand.
 
 # --- cell 0 ---
 import matplotlib.pyplot as plt
@@ -165,30 +165,38 @@ plt.show()
 # ## 4
 
 # --- cell 24 ---
-def Denoise_TV(f, K, lamb, eps=1.0, tau=0.1, conv_crit=1e-4):
+def Denoise_weighted(f, K, lamb, tau, weight, conv_crit):
+    """
+    Boucle commune à Denoise_TV, Denoise_g1 et Denoise_g2 :
+        u^{k+1} = u^k + tau * ( lamb * (f - u^k) + div( w * grad u^k ) ),   w = weight(|grad u^k|^2)
+    Seul le poids w = phi'(xi) / xi change d'une méthode à l'autre.
+    """
+    f = f.astype(np.float64)
+    u = f.copy()
 
-    u = f.astype(np.float64).copy()
-    
     for k in range(K):
-        u_prev = u.copy()
-        
-        # Calcul du gradient spatial
-        grad = gradient(u)  # shape (2, m, n)
-        
-        # sqrt(||grad(u)||^2 + eps^2), même convention que Deconvolution_TV et Inpainting_TV
-        norm_grad = np.sqrt(np.sum(grad**2, axis=0) + eps**2)
-        
-        # grad(u) / sqrt(||grad(u)||^2 + eps^2)
-        flux = grad / norm_grad
-        
-        # Descente de gradient
-        u = u + tau * (lamb * (f - u) + div(flux))
-        
+        u_prev = u
+
+        grad = gradient(u)                                    # shape (2, m, n)
+        w = weight(np.sum(grad**2, axis=0))                   # poids par pixel, shape (m, n)
+
+        u = u + tau * (lamb * (f - u) + div(w * grad))
+
         if convergence_criteria(u_prev, u, conv_crit):
-            # print(f"TV convergé en {k+1} itérations.")
             break
-            
+
     return u
+
+
+def tv_flux(u, eps):
+    """grad(u) / sqrt(||grad(u)||^2 + eps^2) : le flux de la TV lissée (utilisé aussi par Deconvolution_TV et Inpainting_TV)."""
+    grad_u = gradient(u)
+    return grad_u / np.sqrt(grad_u[0]**2 + grad_u[1]**2 + eps**2)
+
+
+def Denoise_TV(f, K, lamb, eps=1.0, tau=0.1, conv_crit=1e-4):
+    """TV lissée : w = 1 / sqrt(||grad u||^2 + eps^2)."""
+    return Denoise_weighted(f, K, lamb, tau, lambda g2: 1.0 / np.sqrt(g2 + eps**2), conv_crit)
 
 # --- cell 25 (markdown) ---
 # ## 5.2
@@ -361,10 +369,7 @@ def Deconvolution_TV(f, G, tau, eps, K, lamb):
         data_term = convolve2d(f - Gu, G, mode='same', boundary='symm')
         
         # Terme de régularisation TV : div( grad(u) / sqrt(||grad(u)||^2 + eps^2) )
-        grad_u = gradient(u)
-        norm_grad = np.sqrt(grad_u[0]**2 + grad_u[1]**2 + eps**2)
-        flux = grad_u / norm_grad
-        reg_term = div(flux)
+        reg_term = div(tv_flux(u, eps))
         
         # Schéma de descente de gradient (équation 2.18)
         u = u + tau * (lamb * data_term + reg_term)
@@ -432,10 +437,7 @@ def Inpainting_TV(f, M, tau, eps, K, lamb):
         data_term = M * (f - u)
         
         # Terme de régularisation TV : div( grad(u) / sqrt(||grad(u)||^2 + eps^2) )
-        grad_u = gradient(u)
-        norm_grad = np.sqrt(grad_u[0]**2 + grad_u[1]**2 + eps**2)
-        flux = grad_u / norm_grad
-        reg_term = div(flux)
+        reg_term = div(tv_flux(u, eps))
         
         # Schéma de descente de gradient (équation 2.20)
         u = u + tau * (lamb * data_term + reg_term)
@@ -564,22 +566,8 @@ def Denoise_g1(f, K, lamb, eps, tau, conv_crit=1e-5):
     avec  w1(t) = phi_1'(s) / s = 2 / (1 + s^2)^2,   s = t / eps.
     Stable pour tau < 2 / (lamb + 16)  (w1 <= 2 et constante du laplacien = 8).
     """
-    f = f.astype(np.float64)
-    u = f.copy()
-
-    for k in range(K):
-        u_prev = u.copy()
-
-        grad = gradient(u)                         # shape (2, m, n)
-        s2 = np.sum(grad**2, axis=0) / eps**2      # (|grad u| / eps)^2
-        w = 2.0 / (1.0 + s2)**2                    # phi_1'(s) / s
-
-        u = u + tau * (lamb * (f - u) + div(w * grad))
-
-        if convergence_criteria(u_prev, u, conv_crit):
-            break
-
-    return u
+    weight = lambda g2: 2.0 / (1.0 + g2 / eps**2)**2   # phi_1'(s) / s,  s = |grad u| / eps
+    return Denoise_weighted(f, K, lamb, tau, weight, conv_crit)
 
 # --- cell 61 ---
 def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
@@ -593,22 +581,8 @@ def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
     (c'est exactement le coefficient de diffusion de Perona-Malik)
     Stable pour tau < 2 / (lamb + 16).
     """
-    f = f.astype(np.float64)
-    u = f.copy()
-
-    for k in range(K):
-        u_prev = u.copy()
-
-        grad = gradient(u)
-        s2 = np.sum(grad**2, axis=0) / eps**2
-        w = 2.0 / (1.0 + s2)                       # phi_2'(s) / s
-
-        u = u + tau * (lamb * (f - u) + div(w * grad))
-
-        if convergence_criteria(u_prev, u, conv_crit):
-            break
-
-    return u
+    weight = lambda g2: 2.0 / (1.0 + g2 / eps**2)   # phi_2'(s) / s,  s = |grad u| / eps
+    return Denoise_weighted(f, K, lamb, tau, weight, conv_crit)
 
 # --- cell 62 (markdown) ---
 # #### Comparison `Denoise_TV`, `Denoise_g1`, `Denoise_g2`
