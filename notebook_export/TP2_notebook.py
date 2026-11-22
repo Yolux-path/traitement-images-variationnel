@@ -125,7 +125,7 @@ def Denoise_Tikhonov(f, K, lamb, tau=None, conv_crit=1e-5):
     u = f.astype(np.float64).copy()
     
     for k in range(K):
-        u_prev = u.copy()
+        u_prev = u
         
         # u^{k+1} = u^k + tau * (lamb * (f - u^k) + Delta u^k)
         u = u + tau * (lamb * (f - u) + laplacian(u))
@@ -365,8 +365,8 @@ def Deconvolution_TV(f, G, tau, eps, K, lamb):
     
     for k in range(K):
         # Terme d'attache aux données : G * (f - G * u)
-        Gu = convolve2d(u, G, mode='same', boundary='symm')
-        data_term = convolve2d(f - Gu, G, mode='same', boundary='symm')
+        Gu = convolve(u, G)
+        data_term = convolve(f - Gu, G)
         
         # Terme de régularisation TV : div( grad(u) / sqrt(||grad(u)||^2 + eps^2) )
         reg_term = div(tv_flux(u, eps))
@@ -488,7 +488,7 @@ def Inpainting_Tikhonov(f, M, tau, K, lamb, conv_crit=1e-6):
     u = f.copy()
 
     for k in range(K):
-        u_prev = u.copy()
+        u_prev = u
 
         # Attache aux données uniquement sur les pixels connus + diffusion isotrope
         u = u + tau * (lamb * (f - u) * M + laplacian(u))
