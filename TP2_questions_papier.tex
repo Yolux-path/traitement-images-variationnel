@@ -191,8 +191,9 @@ d'un noyau isotrope comme le noyau gaussien), alors $\boxed{G^T = G}$ et
 \[
   \nabla J_G(u) = G*(G*u - f). \tag{2.16}
 \]
-(Aux bords, cette égalité n'est exacte que pour des conditions périodiques ; avec un prolongement symétrique,
-elle est approchée.)
+(Aux bords, cette égalité est exacte pour des conditions périodiques, et aussi pour le prolongement symétrique
+utilisé par \texttt{convolve} : comme $G(\pm x_1,\pm x_2)=G(x_1,x_2)$, la convolution est alors diagonale dans la base de
+la DCT, donc $G^T=G$.)
 
 \paragraph{Inpainting : calcul de $M^T$.}
 $M$ est la matrice diagonale avec $M_{kk} = 1$ si $x_k\in\mathcal M$ et $0$ sinon. Elle est diagonale donc
@@ -233,6 +234,10 @@ Pour les deux inpaintings, la fonctionnelle est strictement convexe dès que le 
 
 \subsection*{Les paramètres}
 
+Ici $\epsilon$ suit la convention des équations (2.18) et (2.19), $\sqrt{\nr{\nabla u}^2+\epsilon^2}$, qui est aussi celle du
+code (y compris \texttt{Denoise\_TV}). L'équation (1.7) et la remarque de la question 1 écrivent $\sqrt{\nr{\nabla u}^2+\epsilon}$ :
+on passe de l'une à l'autre en remplaçant $\epsilon$ par $\epsilon^2$, et elles coïncident pour $\epsilon=1$.
+
 \begin{itemize}[leftmargin=*]
   \item $\boldsymbol{\lambda}$ : compromis attache aux données / régularité.
     En déconvolution, $\lambda$ grand donne une image plus nette mais bruitée ; $\lambda$ petit donne une image
@@ -240,13 +245,16 @@ Pour les deux inpaintings, la fonctionnelle est strictement convexe dès que le 
     En inpainting, les pixels connus ne sont pas bruités, donc on peut prendre $\lambda$ grand ; $\lambda$ n'agit
     que sur $\mathcal M$ et a peu d'influence sur le remplissage des trous.
   \item $\boldsymbol{\epsilon}$ : plus il est petit, plus $J^\epsilon_{TV}$ est proche de la vraie TV (contours plus
-    nets), mais plus la constante de Lipschitz $8/\sqrt\epsilon$ est grande, ce qui force un pas $\tau$ plus petit
+    nets), mais plus la constante de Lipschitz $8/\epsilon$ est grande, ce qui force un pas $\tau$ plus petit
     et ralentit la convergence.
   \item $\boldsymbol{\tau}$ : la descente de gradient converge pour $\tau < 2/L$, avec
-    $L \le \lambda\nr{A}^2 + 8$ (Tikhonov) ou $L \le \lambda\nr{A}^2 + 8/\sqrt\epsilon$ (TV), et $\nr{G}\le 1$,
+    $L \le \lambda\nr{A}^2 + 8$ (Tikhonov) ou $L \le \lambda\nr{A}^2 + 8/\epsilon$ (TV), et $\nr{G}\le 1$,
     $\nr{M}=1$.
   \item $\boldsymbol{K}$ : en inpainting, l'information se propage par diffusion, donc lentement : il faut un
-    grand nombre d'itérations pour remplir les grands trous (d'où $K$ de l'ordre de plusieurs milliers).
+    grand nombre d'itérations pour remplir les grands trous. Pour la TV, on compare deux initialisations des trous
+    ($f$, ou la moyenne des pixels connus) : l'écart maximal dans les trous atteint 49 niveaux de gris pour $K=8000$.
+    Avec $K=24000$ et $\tau = 1{,}8/(\lambda+8/\epsilon)$, il reste inférieur à 2 pour $\lambda\le 1$, mais atteint encore
+    10 pour $\lambda=10$ : le pas diminue quand $\lambda$ augmente, donc le remplissage est plus lent.
 \end{itemize}
 
 \section*{Question 14 -- Conditions d'optimalité pour $\phi_1$ et $\phi_2$}

@@ -113,6 +113,9 @@ def convergence_criteria(u0, u1, conv_crit):
     err = norm(u1 - u0) / (norm(u0) + 1e-12)
     return err < conv_crit
 
+def rmse(u, ref):
+    return np.sqrt(np.mean((u - ref) ** 2))
+
 # --- cell 18 (markdown) ---
 # ## 3
 
@@ -159,7 +162,7 @@ plt.tight_layout()
 plt.show()
 
 # --- cell 22 (markdown) ---
-# More the Lambda argu increas more the image be denoised but we lose the quality...
+# Plus $\lambda$ est **grand**, plus $u_\lambda$ reste proche de $f$ : l'image est *moins* débruitée. Plus $\lambda$ est petit, plus la régularisation domine : le bruit disparaît, mais les contours deviennent flous.
 
 # --- cell 23 (markdown) ---
 # ## 4
@@ -203,7 +206,7 @@ def Denoise_TV(f, K, lamb, eps=1.0, tau=0.1, conv_crit=1e-4):
 # ### Test of `Denoise_TV`
 
 # --- cell 26 ---
-lambdas_tv = [0.1, 0.01, 0.001]
+lambdas_tv = [0.1, 0.05, 0.01, 0.001]
 K_max = 1000
 eps = 1.0
 tau_tv = 0.1  # Doit rester modéré pour garantir la stabilité numérique
@@ -225,10 +228,36 @@ plt.show()
 # --- cell 27 (markdown) ---
 # With a better lambda argu, the image is more denoised and we lose less quality than the previous method (1.6) 
 
-# --- cell 28 (markdown) ---
+# --- cell 28 ---
+# Question 5 : évolution de lambda_opt avec le niveau de bruit
+sigmas = [10, 20, 30, 50]
+lambdas_opt_tik = np.geomspace(0.3, 20, 15)
+lambdas_opt_tv = np.geomspace(0.01, 0.5, 9)
+opt_tik, opt_tv = [], []
+
+for s in sigmas:
+    np.random.seed(0)
+    f_s = add_gaussian_noise(Im_data, s)
+    e_tik = [rmse(Denoise_Tikhonov(f_s, K=1000, lamb=l), Im_data) for l in lambdas_opt_tik]
+    e_tv = [rmse(Denoise_TV(f_s, K=1000, lamb=l, conv_crit=0), Im_data) for l in lambdas_opt_tv]
+    opt_tik.append(lambdas_opt_tik[np.argmin(e_tik)])
+    opt_tv.append(lambdas_opt_tv[np.argmin(e_tv)])
+    print(f"sigma={s} : Tikhonov lambda_opt={opt_tik[-1]:.2f} (RMSE {min(e_tik):.1f}) | TV lambda_opt={opt_tv[-1]:.3f} (RMSE {min(e_tv):.1f})")
+
+plt.loglog(sigmas, opt_tik, 'o-', label='Tikhonov')
+plt.loglog(sigmas, opt_tv, 's-', label='TV lissée')
+plt.xlabel("$\\sigma$ (bruit)")
+plt.ylabel("$\\lambda_{opt}$")
+plt.legend()
+plt.show()
+
+# --- cell 29 (markdown) ---
+# **Évolution de $\lambda_{opt}$ avec le bruit.** Plus le bruit $\sigma$ est fort, plus $\lambda_{opt}$ (celui qui minimise le RMSE) est **petit** : on fait moins confiance à $f$ et on régularise davantage. Les $\lambda_{opt}$ de Tikhonov et de la TV ne sont pas dans la même plage (régularisation quadratique contre linéaire). Les valeurs sont celles de la grille testée.
+
+# --- cell 30 (markdown) ---
 # ## 6
 
-# --- cell 29 ---
+# --- cell 31 ---
 def Denoise_Tikhonov_DFT(f, lamb):
     m, n = f.shape
 
@@ -265,10 +294,10 @@ def Denoise_Tikhonov_DCT(f, lamb):
     L_hat = -4.0 * (np.sin(np.pi * p / (2 * m)) ** 2 + np.sin(np.pi * q / (2 * n)) ** 2)
     return idctn(lamb * dctn(f, norm='ortho') / (lamb - L_hat), norm='ortho')
 
-# --- cell 30 (markdown) ---
+# --- cell 32 (markdown) ---
 # ### Test of `Denoise_Tikhonov_Fourier` 
 
-# --- cell 31 ---
+# --- cell 33 ---
 lamb = 0.1
 u_tik_grad = Denoise_Tikhonov(Im_noised, K=1500, lamb=lamb)
 u_tik_dft = Denoise_Tikhonov_DFT(Im_noised, lamb=lamb)
@@ -294,12 +323,12 @@ axes[3].axis('off')
 plt.tight_layout()
 plt.show()
 
-# --- cell 32 (markdown) ---
+# --- cell 34 (markdown) ---
 # Les images sont floues : avec $\lambda = 0.1$ la régularisation domine et lisse beaucoup.
 # 
-# La TFD (1.14) suppose une image **périodique** (le bord gauche touche le bord droit), alors que `gradient`/`div` utilisent des bords de **Neumann**. Les deux résultats coïncident à l'intérieur, mais diffèrent nettement sur les bords (jusqu'à ~57 niveaux de gris). La DCT diagonalise le laplacien de Neumann : `Denoise_Tikhonov_DCT` donne exactement la limite de la descente de gradient (vérifié dans la cellule suivante).
+# La TFD (1.14) suppose une image **périodique** (le bord gauche touche le bord droit), alors que `gradient`/`div` utilisent des bords de **Neumann**. Les deux résultats coïncident à l'intérieur, mais diffèrent nettement sur les bords (jusqu'à ~55 niveaux de gris). La DCT diagonalise le laplacien de Neumann : `Denoise_Tikhonov_DCT` donne exactement la limite de la descente de gradient (vérifié dans la cellule suivante).
 
-# --- cell 33 ---
+# --- cell 35 ---
 # Tests : chaque solution vérifie sa condition d'optimalité  lamb * (u - f) - Delta u = 0
 def laplacian_periodic(u):
     return (np.roll(u, 1, 0) + np.roll(u, -1, 0) + np.roll(u, 1, 1) + np.roll(u, -1, 1) - 4 * u)
@@ -311,25 +340,25 @@ assert np.abs(res_dct).max() < 1e-8, np.abs(res_dct).max()
 print("Écart DFT / DCT : intérieur", np.abs(u_tik_dft - u_tik_dct)[20:-20, 20:-20].max(),
       "| bords", np.abs(u_tik_dft - u_tik_dct).max())
 
-# --- cell 34 (markdown) ---
+# --- cell 36 (markdown) ---
 # ## 7
 
-# --- cell 35 (markdown) ---
-# On paper
-
-# --- cell 36 (markdown) ---
-# # Extensions to deconvolution and inpainting
-
 # --- cell 37 (markdown) ---
-# ## 8
+# On paper
 
 # --- cell 38 (markdown) ---
-# On paper
+# # Extensions to deconvolution and inpainting
 
 # --- cell 39 (markdown) ---
+# ## 8
+
+# --- cell 40 (markdown) ---
+# On paper
+
+# --- cell 41 (markdown) ---
 # #### Load images
 
-# --- cell 40 ---
+# --- cell 42 ---
 # Image : Parrot
 Im_parrot = load_img('Im1.png')
 Mask_parrot = load_img('Im1_mask.png')
@@ -342,7 +371,7 @@ Mask_beach = load_img('Im2_mask.png')
 Im_mystery = load_img('Im3.png')
 Mask_mystery = load_img('Im3_mask.png')
 
-# --- cell 41 ---
+# --- cell 43 ---
 def gaussian_kernel(size, sigma):
     variance = sigma**2
     half_size = size // 2
@@ -352,14 +381,14 @@ def gaussian_kernel(size, sigma):
     
     return np.exp(- (X**2 + Y**2) / (2 * variance)) / (2 * np.pi * variance)
 
-# --- cell 42 ---
+# --- cell 44 ---
 def convolve(f, G):
     return convolve2d(f, G, mode='same', boundary='symm')
 
-# --- cell 43 (markdown) ---
+# --- cell 45 (markdown) ---
 # ## 9
 
-# --- cell 44 ---
+# --- cell 46 ---
 def Deconvolution_TV(f, G, tau, eps, K, lamb):
     u = f.astype(np.float64).copy()
     
@@ -376,7 +405,7 @@ def Deconvolution_TV(f, G, tau, eps, K, lamb):
         
     return u
 
-# --- cell 45 ---
+# --- cell 47 ---
 np.random.seed(0)
 
 # Noyau gaussien normalisé (somme = 1) pour ne pas assombrir l'image
@@ -385,9 +414,6 @@ G = G / G.sum()
 
 Im_convolved = convolve(Im_data.astype(np.float64), G)        # G * u*
 Im_convolved_noised = add_gaussian_noise(Im_convolved, s=5)   # f = G * u* + w
-
-def rmse(u, ref):
-    return np.sqrt(np.mean((u - ref) ** 2))
 
 fig, axes = plt.subplots(1, 3, figsize=(12, 4))
 for ax, im, title in zip(axes,
@@ -399,11 +425,11 @@ for ax, im, title in zip(axes,
 plt.tight_layout()
 plt.show()
 
-# --- cell 46 (markdown) ---
+# --- cell 48 (markdown) ---
 # ## 12.1
 # ### Test of `Deconvolution_TV`
 
-# --- cell 47 ---
+# --- cell 49 ---
 lambdas_deconv = [0.1, 1.0, 5.0, 20.0]
 K_deconv = 500
 eps = 1.0
@@ -423,10 +449,10 @@ for i, lamb in enumerate(lambdas_deconv):
 plt.tight_layout()
 plt.show()
 
-# --- cell 48 (markdown) ---
+# --- cell 50 (markdown) ---
 # ## 10
 
-# --- cell 49 ---
+# --- cell 51 ---
 def Inpainting_TV(f, M, tau, eps, K, lamb):
     f = f.astype(np.float64)
     M = (M > 0).astype(np.float64)   # normalise le masque en {0, 1} (accepte 0/255)
@@ -444,13 +470,13 @@ def Inpainting_TV(f, M, tau, eps, K, lamb):
 
     return u
 
-# --- cell 50 (markdown) ---
+# --- cell 52 (markdown) ---
 # ## 12.2
 # ### Test of `Inpainting_TV`
 
-# --- cell 51 ---
+# --- cell 53 ---
 lambdas_inp_tv = [0.1, 1.0, 10.0]
-K_inp_tv = 8000   # grand K : la diffusion TV est lente pour combler les trous (~1 min au total)
+K_inp_tv = 24000   # grand K : la diffusion TV est lente pour combler les trous (~6 min au total ; remplissage pas tout à fait convergé pour lambda = 10)
 eps = 1.0
 
 for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
@@ -462,7 +488,7 @@ for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
     axes[0].axis('off')
 
     for i, lamb in enumerate(lambdas_inp_tv):
-        u_inp = Inpainting_TV(Im, Mask, tau=1.0 / (lamb + 8.0 / eps), eps=eps, K=K_inp_tv, lamb=lamb)
+        u_inp = Inpainting_TV(Im, Mask, tau=1.8 / (lamb + 8.0 / eps), eps=eps, K=K_inp_tv, lamb=lamb)
         axes[i+1].imshow(u_inp, cmap='gray', **bounds)
         axes[i+1].set_title(f"TV ($\\lambda = {lamb}$)")
         axes[i+1].axis('off')
@@ -470,10 +496,10 @@ for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
     plt.tight_layout()
     plt.show()
 
-# --- cell 52 (markdown) ---
+# --- cell 54 (markdown) ---
 # ## 11
 
-# --- cell 53 ---
+# --- cell 55 ---
 def Inpainting_Tikhonov(f, M, tau, K, lamb, conv_crit=1e-6):
     """
     Inpainting avec régularisation de Tikhonov (équation 2.20) :
@@ -499,11 +525,11 @@ def Inpainting_Tikhonov(f, M, tau, K, lamb, conv_crit=1e-6):
 
     return u
 
-# --- cell 54 (markdown) ---
+# --- cell 56 (markdown) ---
 # ## 12.3
 # ### Test of `Inpainting_Tikhonov`
 
-# --- cell 55 ---
+# --- cell 57 ---
 lambdas_inp = [0.1, 1.0, 10.0]
 K_inp = 5000
 
@@ -524,16 +550,16 @@ for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
     plt.tight_layout()
     plt.show()
 
-# --- cell 56 (markdown) ---
+# --- cell 58 (markdown) ---
 # ## 13
 
-# --- cell 57 (markdown) ---
+# --- cell 59 (markdown) ---
 # On paper
 
-# --- cell 58 (markdown) ---
+# --- cell 60 (markdown) ---
 # ## 14
 
-# --- cell 59 (markdown) ---
+# --- cell 61 (markdown) ---
 # ### Conditions d'optimalité
 # 
 # On minimise $J_\lambda(u) = \frac{\lambda}{2}\|u - f\|^2 + \sum_{x} \phi(\|\nabla u(x)\|)$.
@@ -554,7 +580,7 @@ for name, Im, Mask in [("Parrot", Im_parrot, Mask_parrot),
 # 
 # En pratique, les pixels valent entre 0 et 255, donc on remplace $\xi$ par $\xi/\varepsilon$ (fonction $\varepsilon^2\phi(\xi/\varepsilon)$) : $\varepsilon$ fixe le seuil de contraste à partir duquel un gradient est considéré comme un contour.
 
-# --- cell 60 ---
+# --- cell 62 ---
 def Denoise_g1(f, K, lamb, eps, tau, conv_crit=1e-5):
     """
     Débruitage avec phi_1(xi) = xi^2 / (1 + xi^2)   (non convexe)
@@ -569,7 +595,7 @@ def Denoise_g1(f, K, lamb, eps, tau, conv_crit=1e-5):
     weight = lambda g2: 2.0 / (1.0 + g2 / eps**2)**2   # phi_1'(s) / s,  s = |grad u| / eps
     return Denoise_weighted(f, K, lamb, tau, weight, conv_crit)
 
-# --- cell 61 ---
+# --- cell 63 ---
 def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
     """
     Débruitage avec phi_2(xi) = log(1 + xi^2)   (non convexe)
@@ -584,51 +610,57 @@ def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
     weight = lambda g2: 2.0 / (1.0 + g2 / eps**2)   # phi_2'(s) / s,  s = |grad u| / eps
     return Denoise_weighted(f, K, lamb, tau, weight, conv_crit)
 
-# --- cell 62 (markdown) ---
+# --- cell 64 (markdown) ---
 # #### Comparison `Denoise_TV`, `Denoise_g1`, `Denoise_g2`
 
-# --- cell 63 ---
-lamb_cmp = 0.01
-K_cmp = 300
+# --- cell 65 ---
+# Comparaison à réglages égaux : même K, même critère d'arrêt (aucun), et (lambda, eps) réglés pour chaque méthode.
+K_cmp = 3000
 tau_cmp = 0.1          # < 2 / (lamb + 16) : stable pour les trois méthodes
-eps_g1 = 20.0          # seuil de contraste pour phi_1
-eps_g2 = 5.0           # seuil de contraste pour phi_2
+lambdas_cmp = [0.02, 0.04, 0.07, 0.1, 0.2, 0.5, 0.8]
+eps_grid = {"TV": [1.0], "$\\phi_1$": [20.0, 40.0, 50.0], "$\\phi_2$": [5.0, 10.0, 15.0]}
+methods = {"TV": Denoise_TV, "$\\phi_1$": Denoise_g1, "$\\phi_2$": Denoise_g2}
 
-u_tv = Denoise_TV(Im_noised, K=1000, lamb=lamb_cmp, eps=1.0, tau=tau_cmp)
-u_g1 = Denoise_g1(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=eps_g1, tau=tau_cmp)
-u_g2 = Denoise_g2(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=eps_g2, tau=tau_cmp)
-
-def rmse(u, ref):
-    return np.sqrt(np.mean((u - ref) ** 2))
-
-images = [Im_noised, u_tv, u_g1, u_g2]
-titles = ["$f$ bruitée", "TV", f"$\\phi_1$ ($\\varepsilon$={eps_g1})", f"$\\phi_2$ ($\\varepsilon$={eps_g2})"]
+best = {}              # nom -> (rmse, lambda, eps, u)
+for name, fn in methods.items():
+    for e in eps_grid[name]:
+        errs = []
+        for l in lambdas_cmp:
+            u = fn(Im_noised, K=K_cmp, lamb=l, eps=e, tau=tau_cmp, conv_crit=0)
+            errs.append(rmse(u, Im_data))
+            if name not in best or errs[-1] < best[name][0]:
+                best[name] = (errs[-1], l, e, u)
+        print(f"{name:9s} eps={e:<5} RMSE selon lambda {lambdas_cmp} :", [f"{x:.1f}" for x in errs])
 
 fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-for ax, im, t in zip(axes, images, titles):
-    ax.imshow(im, cmap='gray', **bounds)
-    ax.set_title(f"{t}\nRMSE = {rmse(im, Im_data):.1f}")
+axes[0].imshow(Im_noised, cmap='gray', **bounds)
+axes[0].set_title(f"$f$ bruitée\nRMSE = {rmse(Im_noised, Im_data):.1f}")
+axes[0].axis('off')
+for ax, (name, (err, l, e, u)) in zip(axes[1:], best.items()):
+    ax.imshow(u, cmap='gray', **bounds)
+    ax.set_title(f"{name} ($\\lambda$={l}, $\\varepsilon$={e})\nRMSE = {err:.1f}")
     ax.axis('off')
 plt.tight_layout()
 plt.show()
 
-# Influence de eps (seuil de contraste)
+# Influence de eps (seuil de contraste), lambda fixé au meilleur de chaque méthode
 eps_list = [5.0, 10.0, 20.0, 40.0]
 fig, axes = plt.subplots(2, len(eps_list), figsize=(20, 9))
-for j, e in enumerate(eps_list):
-    for i, (name, fn) in enumerate([("$\\phi_1$", Denoise_g1), ("$\\phi_2$", Denoise_g2)]):
-        u = fn(Im_noised, K=K_cmp, lamb=lamb_cmp, eps=e, tau=tau_cmp)
+for i, name in enumerate(["$\\phi_1$", "$\\phi_2$"]):
+    l = best[name][1]
+    for j, e in enumerate(eps_list):
+        u = methods[name](Im_noised, K=K_cmp, lamb=l, eps=e, tau=tau_cmp, conv_crit=0)
         axes[i, j].imshow(u, cmap='gray', **bounds)
-        axes[i, j].set_title(f"{name}, $\\varepsilon$={e}, RMSE = {rmse(u, Im_data):.1f}")
+        axes[i, j].set_title(f"{name}, $\\lambda$={l}, $\\varepsilon$={e}, RMSE = {rmse(u, Im_data):.1f}")
         axes[i, j].axis('off')
 plt.tight_layout()
 plt.show()
 
-# --- cell 64 (markdown) ---
+# --- cell 66 (markdown) ---
 # ### Commentaires
 # 
-# - **Qualité** (bruit $\sigma=30$, RMSE de $f$ ≈ 29.9, $\lambda=0.01$) : $\phi_2$ avec $\varepsilon=5$ donne la meilleure erreur (RMSE ≈ 12.3) ; $\phi_1$ avec $\varepsilon=20$ (≈ 14.5) est au niveau de la TV lissée (≈ 14.2). Mais avec un mauvais $\varepsilon$, $\phi_1$ et $\phi_2$ peuvent être bien pires que la TV (voir la deuxième figure).
+# - **Qualité** (bruit $\sigma=30$, RMSE de $f$ ≈ 29.9, mêmes $K=3000$ et critère d'arrêt pour les trois) : une fois $(\lambda, \varepsilon)$ réglés pour chaque méthode, la TV lissée ($\lambda=0.04$, RMSE ≈ 11.5) et $\phi_2$ ($\lambda=0.5$, $\varepsilon=15$, ≈ 11.4) sont **à égalité**, devant $\phi_1$ ($\lambda=0.8$, $\varepsilon=50$, ≈ 12.2). Attention : avec $\lambda$ trop petit (0.01), s'arrêter tôt joue le rôle d'une régularisation et peut fausser le classement.
 # - **Préservation des contours** : le poids $\phi'(\xi)/\xi$ décroît en $1/\xi$ pour TV, en $1/\xi^2$ pour $\phi_2$ et en $1/\xi^4$ pour $\phi_1$. Plus il décroît vite, moins on diffuse à travers les forts gradients : les contours restent nets, les zones plates sont lissées.
 # - **Rôle de $\varepsilon$** : c'est un seuil de contraste. Trop petit, le bruit est vu comme des contours et n'est pas retiré ; trop grand, les vrais contours sont lissés. Le bon $\varepsilon$ n'est pas le même pour $\phi_1$ et $\phi_2$, et il dépend du niveau de bruit.
 # - **Non-convexité** : contrairement à Tikhonov et à la TV, $J_\lambda$ n'est plus convexe. Il n'y a pas d'unicité du minimiseur, le résultat dépend de l'initialisation ($u^0 = f$) et du nombre d'itérations. $\phi_1$ est bornée (elle « sature » à 1) : elle pénalise à peu près pareil tous les grands sauts, ce qui favorise des images constantes par morceaux.
-# - **Rôle de $\lambda$** : comme avant, il équilibre attache aux données et régularisation ; ici $\lambda$ influe moins que $\varepsilon$ sur le résultat.
+# - **Rôle de $\lambda$** : il équilibre attache aux données et régularisation, et **compte autant que $\varepsilon$** (par exemple $\phi_2$, $\varepsilon=15$ : RMSE ≈ 30 pour $\lambda=0.02$, ≈ 11.4 pour $\lambda=0.5$). Les deux se règlent ensemble : plus $\varepsilon$ est grand, plus le $\lambda$ optimal est grand.
