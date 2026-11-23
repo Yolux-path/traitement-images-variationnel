@@ -1,17 +1,18 @@
 #!/bin/sh
 # Regenerate notebook_export/TP2_notebook.py from the notebook so the code
 # can be read and diffed as plain Python. Runs only when the notebook is staged.
-NB="TP2_jupyter_empty.ipynb"
+NB="TP2.ipynb"
 OUT="notebook_export/TP2_notebook.py"
 cd "$(git rev-parse --show-toplevel)" || exit 0
 git diff --cached --name-only | grep -qx "$NB" || exit 0
 
 PY=python3
 "$PY" - "$NB" "$OUT" <<'EOF' || { echo "pre-commit: notebook export failed (commit continues)"; exit 0; }
-import json, sys, ast
+import json, subprocess, sys, ast
 from pathlib import Path
 nb_path, out_path = sys.argv[1], Path(sys.argv[2])
-nb = json.loads(Path(nb_path).read_text(encoding="utf-8"))
+# Staged version, not the file on disk: the export must match what is committed
+nb = json.loads(subprocess.check_output(["git", "show", ":" + nb_path]))
 parts = [f"# Auto-generated from {nb_path} by hooks/pre-commit - do not edit by hand."]
 for i, c in enumerate(nb["cells"]):
     src = "".join(c["source"])
