@@ -20,7 +20,7 @@ from scipy.fft import dctn, idctn
 # Sur papier : voir `TP2_questions_papier.pdf`.
 
 # --- cell 5 (markdown) ---
-# # Denoising with variational approaches
+# # Débruitage par approches variationnelles
 
 # --- cell 6 ---
 def scalar_product(u, v):
@@ -70,7 +70,7 @@ assert np.allclose(laplacian(np.ones((40, 50))), 0)   # le laplacien d'une const
 print("gradient / div : OK")
 
 # --- cell 11 (markdown) ---
-# #### Image setup
+# #### Préparation des images
 
 # --- cell 12 ---
 def load_img(fname, dirname='images/'):
@@ -100,7 +100,7 @@ plt.imshow(Im_noised, cmap='gray', **bounds)
 plt.show()
 
 # --- cell 16 (markdown) ---
-# #### Convergence criteria
+# #### Critère de convergence
 
 # --- cell 17 ---
 def convergence_criteria(u0, u1, conv_crit):
@@ -139,7 +139,7 @@ def Denoise_Tikhonov(f, K, lamb, tau=None, conv_crit=1e-5):
 
 # --- cell 20 (markdown) ---
 # ## 5.1
-# ### Test of `Denoise_Tikhonov` 
+# ### Test de `Denoise_Tikhonov` 
 
 # --- cell 21 ---
 lambdas_tik = [1.0, 0.1, 0.01]
@@ -201,7 +201,7 @@ def Denoise_TV(f, K, lamb, eps=1.0, tau=0.1, conv_crit=1e-4):
 
 # --- cell 25 (markdown) ---
 # ## 5.2
-# ### Test of `Denoise_TV`
+# ### Test de `Denoise_TV`
 
 # --- cell 26 ---
 lambdas_tv = [0.1, 0.05, 0.01, 0.001]
@@ -293,7 +293,7 @@ def Denoise_Tikhonov_DCT(f, lamb):
     return idctn(lamb * dctn(f, norm='ortho') / (lamb - L_hat), norm='ortho')
 
 # --- cell 32 (markdown) ---
-# ### Test of `Denoise_Tikhonov_Fourier` 
+# ### Test de `Denoise_Tikhonov_DFT` et `Denoise_Tikhonov_DCT` 
 
 # --- cell 33 ---
 lamb = 0.1
@@ -345,7 +345,7 @@ print("Écart DFT / DCT : intérieur", np.abs(u_tik_dft - u_tik_dct)[20:-20, 20:
 # Sur papier : voir `TP2_questions_papier.pdf`.
 
 # --- cell 38 (markdown) ---
-# # Extensions to deconvolution and inpainting
+# # Extensions : déconvolution et inpainting
 
 # --- cell 39 (markdown) ---
 # ## 8
@@ -354,7 +354,7 @@ print("Écart DFT / DCT : intérieur", np.abs(u_tik_dft - u_tik_dct)[20:-20, 20:
 # Sur papier : voir `TP2_questions_papier.pdf`.
 
 # --- cell 41 (markdown) ---
-# #### Load images
+# #### Chargement des images
 
 # --- cell 42 ---
 # Image : Parrot
@@ -425,7 +425,7 @@ plt.show()
 
 # --- cell 48 (markdown) ---
 # ## 12.1
-# ### Test of `Deconvolution_TV`
+# ### Test de `Deconvolution_TV`
 
 # --- cell 49 ---
 lambdas_deconv = [0.1, 1.0, 5.0, 20.0]
@@ -486,7 +486,7 @@ def Inpainting_TV(f, M, tau, eps, K, lamb):
 
 # --- cell 53 (markdown) ---
 # ## 12.2
-# ### Test of `Inpainting_TV`
+# ### Test de `Inpainting_TV`
 
 # --- cell 54 ---
 lambdas_inp_tv = [0.1, 1.0, 10.0]
@@ -541,7 +541,7 @@ def Inpainting_Tikhonov(f, M, tau, K, lamb, conv_crit=1e-6):
 
 # --- cell 57 (markdown) ---
 # ## 12.3
-# ### Test of `Inpainting_Tikhonov`
+# ### Test de `Inpainting_Tikhonov`
 
 # --- cell 58 ---
 lambdas_inp = [0.1, 1.0, 10.0]
@@ -687,7 +687,7 @@ def Denoise_g2(f, K, lamb, eps, tau, conv_crit=1e-5):
     return Denoise_weighted(f, K, lamb, tau, weight, conv_crit)
 
 # --- cell 67 (markdown) ---
-# #### Comparison `Denoise_TV`, `Denoise_g1`, `Denoise_g2`
+# #### Comparaison `Denoise_TV`, `Denoise_g1`, `Denoise_g2`
 
 # --- cell 68 ---
 # Comparaison à réglages égaux : même K, même critère d'arrêt (aucun), et (lambda, eps) réglés pour chaque méthode.
