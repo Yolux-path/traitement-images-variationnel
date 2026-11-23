@@ -132,7 +132,6 @@ def Denoise_Tikhonov(f, K, lamb, tau=None, conv_crit=1e-5):
         u = u + tau * (lamb * (f - u) + laplacian(u))
         
         if convergence_criteria(u_prev, u, conv_crit):
-            # print(f"Tikhonov convergé en {k+1} itérations.")
             break
             
     return u
@@ -428,24 +427,36 @@ plt.show()
 # ### Test de `Deconvolution_TV`
 
 # --- cell 49 ---
-lambdas_deconv = [0.1, 1.0, 5.0, 20.0]
+lambdas_deconv = [0.1, 1.0, 2.0, 5.0, 20.0]
 K_deconv = 500
 eps = 1.0
 
-fig, axes = plt.subplots(1, len(lambdas_deconv) + 1, figsize=(20, 4))
+def residu(u):
+    """||G*u - f|| / sqrt(mn), à comparer au niveau de bruit sigma = 5."""
+    return np.linalg.norm(convolve(u, G) - Im_convolved_noised) / np.sqrt(u.size)
+
+fig, axes = plt.subplots(1, len(lambdas_deconv) + 1, figsize=(24, 4))
 axes[0].imshow(Im_convolved_noised, cmap='gray', **bounds)
 axes[0].set_title(f"$f$ (RMSE = {rmse(Im_convolved_noised, Im_data):.1f})")
 axes[0].axis('off')
+print(f"RMSE de f : {rmse(Im_convolved_noised, Im_data):.1f} | flou seul : {rmse(Im_convolved, Im_data):.1f}")
 
 for i, lamb in enumerate(lambdas_deconv):
     tau = 1.0 / (lamb + 8.0 / eps)   # pas stable : tau < 2 / L
     u_deconv = Deconvolution_TV(Im_convolved_noised, G, tau=tau, eps=eps, K=K_deconv, lamb=lamb)
+    print(f"lambda={lamb} : RMSE {rmse(u_deconv, Im_data):.1f} | résidu {residu(u_deconv):.1f}")
     axes[i+1].imshow(u_deconv, cmap='gray', **bounds)
-    axes[i+1].set_title(f"TV ($\\lambda = {lamb}$, RMSE = {rmse(u_deconv, Im_data):.1f})")
+    axes[i+1].set_title(f"TV ($\\lambda = {lamb}$)\nRMSE = {rmse(u_deconv, Im_data):.1f}, résidu = {residu(u_deconv):.1f}")
     axes[i+1].axis('off')
 
 plt.tight_layout()
 plt.show()
+
+# Rôle de K pour lambda = 20
+lamb = 20.0
+for K in (100, 500, 2000):
+    u_K = Deconvolution_TV(Im_convolved_noised, G, tau=1.0 / (lamb + 8.0 / eps), eps=eps, K=K, lamb=lamb)
+    print(f"lambda={lamb}, K={K} : RMSE {rmse(u_K, Im_data):.1f}")
 
 # --- cell 50 (markdown) ---
 # **Commentaires (déconvolution TV).** $f$ a un RMSE de 21,0 par rapport à $u^*$ (20,4 pour le flou seul). On regarde aussi le résidu $\|G*u-f\|/\sqrt{mn}$, à comparer au niveau de bruit $\sigma=5$ ($K=500$) :
@@ -534,7 +545,6 @@ def Inpainting_Tikhonov(f, M, tau, K, lamb, conv_crit=1e-6):
         u = u + tau * (lamb * (f - u) * M + laplacian(u))
 
         if convergence_criteria(u_prev, u, conv_crit):
-            # print(f"Inpainting Tikhonov convergé en {k+1} itérations.")
             break
 
     return u
